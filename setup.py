@@ -76,9 +76,8 @@ if __name__ == "__main__":
 
           # options to install extra requirements
           install_requires=[
-              'packaging>=20.3',
-              'requests>=2.18.2',
-              'light_process>=0.0.2',
+              'pywin32>=227',
+              'dynamicmethod>=1.1.0',
               ],
           extras_require={
               },
