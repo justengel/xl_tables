@@ -9,6 +9,7 @@ import atexit
 import signal
 import shutil
 import win32com.client
+from .constants import populate_constants
 from .prop_utils import ProxyProperty, ProxyMethod, HashDict, ItemStorage
 from .fields import ConstantItem
 
@@ -55,6 +56,7 @@ def init_gencache():
 
 # Call init gencache. Required for constants!
 init_gencache()
+populate_constants()
 
 
 SETTINGS = {

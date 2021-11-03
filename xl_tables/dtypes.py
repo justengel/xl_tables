@@ -1,10 +1,9 @@
 import contextlib
-import pythoncom
-import pywintypes
+# import pythoncom
+# import pywintypes
 import datetime as dt_module
 from dynamicmethod import dynamicmethod
 from collections import OrderedDict
-from . import constants as c
 
 
 __all__ = ['datetime', 'date', 'time',

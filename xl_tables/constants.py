@@ -6,7 +6,22 @@ import contextlib
 import win32com.client as com
 
 
-__all__ = ['com']
+__all__ = ['com', 'populate_constants']
+
+
+MY_MODULE = None
+
+
+def populate_constants():
+    global MY_MODULE
+
+    try:
+        consts = {k: v for k, v in com.constants.__dict__['__dicts__'][0].items()
+                  if not k.startswith('_')}
+        MY_MODULE.__dict__.update(consts)
+        MY_MODULE.__all__ += list(consts.keys())
+    except (AttributeError, IndexError, Exception):
+        pass
 
 
 with contextlib.suppress(AttributeError, Exception):
@@ -26,7 +41,4 @@ with contextlib.suppress(AttributeError, Exception):
         for ATTR in __all__:
             setattr(MY_MODULE, ATTR, vars()[ATTR])
 
-    consts = {k: v for k, v in com.constants.__dict__['__dicts__'][0].items()
-              if not k.startswith('_')}
-    MY_MODULE.__dict__.update(consts)
-    MY_MODULE.__all__ += list(consts.keys())
+    populate_constants()
