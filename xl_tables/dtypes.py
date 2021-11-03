@@ -1,10 +1,14 @@
+import contextlib
+import pythoncom
+import pywintypes
 import datetime as dt_module
 from dynamicmethod import dynamicmethod
 from collections import OrderedDict
+from . import constants as c
 
 
 __all__ = ['datetime', 'date', 'time',
-           'make_datetime', 'str_datetime',
+           'make_datetime', 'str_datetime', 'datetime_fmt_to_excel',
            'DATETIME_FORMATS', 'TIME_FORMATS', 'DATETIME_FORMATS']
 
 
@@ -99,10 +103,23 @@ class DtMixin(object):
     str_format = DATETIME_FORMATS[0]
     formats = DATETIME_FORMATS
 
-    DEFAULT_PARAMS = OrderedDict([('year', DEFAULT_DT.year), ('month', DEFAULT_DT.month), ('day', DEFAULT_DT.day),
-                                  ('hour', DEFAULT_DT.hour), ('minute', DEFAULT_DT.minute),
-                                  ('second', DEFAULT_DT.second), ('microsecond', DEFAULT_DT.microsecond),
-                                  ('tzinfo', DEFAULT_DT.tzinfo), ('fold', DEFAULT_DT.fold)])
+    ATTRS = ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond', 'tzinfo', 'fold']
+
+    @dynamicmethod
+    def to_kwargs(self, dt=None, allow=None, exclude=None):
+        if dt is None:
+            dt = self
+        if allow is None:
+            allow = self.ATTRS
+
+        if exclude is None:
+            exclude = []
+
+        kwargs = {}
+        for attr in allow:
+            if attr not in exclude and hasattr(dt, attr):
+                kwargs[attr] = getattr(dt, attr)
+        return kwargs
 
     def __init__(self, dt=None, *args, str_format=None, formats=None, **kwargs):
         super().__init__()  # Object init
@@ -184,6 +201,7 @@ class DtMixin(object):
             value = item
 
         # Convert the value to a datetime object
+        # print(cls.__name__, item.NumberFormat)
         if not isinstance(value, cls):
             value = cls(value, str_format=self.str_format, formats=self.formats)
 
@@ -201,7 +219,7 @@ class DtMixin(object):
             value = cls(dt=value, str_format=self.str_format, formats=self.formats)
 
         item.NumberFormat = datetime_fmt_to_excel(self.str_format or self.formats[0])
-        item.Value = str(value)
+        item.Value = value
 
     def __str__(self):
         return str_datetime(self, self.str_format or self.formats)
@@ -211,10 +229,7 @@ class datetime(dt_module.datetime, DtMixin):
     formats = DATETIME_FORMATS
     str_format = DATETIME_FORMATS[0]
 
-    DEFAULT_PARAMS = OrderedDict([('year', DEFAULT_DT.year), ('month', DEFAULT_DT.month), ('day', DEFAULT_DT.day),
-                                  ('hour', DEFAULT_DT.hour), ('minute', DEFAULT_DT.minute),
-                                  ('second', DEFAULT_DT.second), ('microsecond', DEFAULT_DT.microsecond),
-                                  ('tzinfo', DEFAULT_DT.tzinfo), ('fold', DEFAULT_DT.fold)])
+    ATTRS = ['year', 'month', 'day', 'hour', 'minute', 'second', 'microsecond', 'tzinfo', 'fold']
 
     def __new__(cls, dt=None, *args, str_format=None, formats=None, **kwargs):
         """Create the datetime object.
@@ -227,7 +242,7 @@ class datetime(dt_module.datetime, DtMixin):
             **kwargs (dict): Dictionary of datetime keyword arguments.
         """
         # Get the parameters and their defaults
-        params = cls.get_params(cls.DEFAULT_PARAMS, dt, args, kwargs, formats)
+        params = cls.get_params(cls.to_kwargs(DEFAULT_DT), dt, args, kwargs, formats)
 
         # Create this object type
         dt = super().__new__(cls, **params)
@@ -249,12 +264,28 @@ class datetime(dt_module.datetime, DtMixin):
     def __str__(self):
         return str_datetime(self, self.str_format or self.formats)
 
+    @dynamicmethod  # Run as a classmethod or instancemethod
+    def encode(self, item, value):
+        # Get the class object
+        cls = self
+        if isinstance(self, (dt_module.datetime, dt_module.date, dt_module.time)):
+            cls = self.__class__
+
+        # Convert to this object type
+        if not isinstance(value, datetime):
+            value = cls(dt=value, str_format=self.str_format, formats=self.formats)
+
+        # Don't change number format. Change your defaults in Excel
+        # item.NumberFormat = '[$-409]' + datetime_fmt_to_excel(self.str_format or self.formats[0])\
+            # .replace('mm', 'm').replace('dd', 'd') + ';@'
+        item.Value = value
+
 
 class date(datetime):  # (dt_module.date, DtMixin):  # excel cannot use date use datetime with different format.
     formats = DATETIME_FORMATS
     str_format = DATE_FORMATS[0]
 
-    DEFAULT_PARAMS = OrderedDict([('year', DEFAULT_DT.year), ('month', DEFAULT_DT.month), ('day', DEFAULT_DT.day)])
+    ATTRS = ['year', 'month', 'day']
 
     def __new__(cls, dt=None, *args, str_format=None, formats=None, **kwargs):
         """Create the date object.
@@ -267,7 +298,7 @@ class date(datetime):  # (dt_module.date, DtMixin):  # excel cannot use date use
             **kwargs (dict): Dictionary of date keyword arguments.
         """
         # Get the parameters and their defaults
-        params = cls.get_params(cls.DEFAULT_PARAMS, dt, args, kwargs)
+        params = cls.get_params(cls.to_kwargs(DEFAULT_DT, allow=cls.ATTRS), dt, args, kwargs)
 
         # Create this object type
         dt = super().__new__(cls, **params)
@@ -289,13 +320,28 @@ class date(datetime):  # (dt_module.date, DtMixin):  # excel cannot use date use
     def __str__(self):
         return str_datetime(self, self.str_format or self.formats)
 
+    @dynamicmethod  # Run as a classmethod or instancemethod
+    def encode(self, item, value):
+        # Get the class object
+        cls = self
+        if isinstance(self, (dt_module.datetime, dt_module.date, dt_module.time)):
+            cls = self.__class__
+
+        # Convert to this object type
+        if not isinstance(value, datetime):
+            value = cls(dt=value, str_format=self.str_format, formats=self.formats)
+
+        # Don't change number format. Change your defaults in Excel
+        # item.NumberFormat = datetime_fmt_to_excel(self.str_format or self.formats[0])\
+        #     .replace('mm', 'm').replace('dd', 'd')
+        item.Value = value
+
 
 class time(dt_module.time, DtMixin):
     formats = TIME_FORMATS
-    str_format = TIME_FORMATS[0]
+    str_format = '%I:%M:%S %p'
 
-    DEFAULT_PARAMS = OrderedDict([('hour', DEFAULT_DT.hour), ('minute', DEFAULT_DT.minute),
-                                  ('second', DEFAULT_DT.second), ('microsecond', DEFAULT_DT.microsecond)])
+    ATTRS = ['hour', 'minute', 'second', 'microsecond']
 
     def __new__(cls, dt=None, *args, str_format=None, formats=None, **kwargs):
         """Create the time object.
@@ -308,7 +354,7 @@ class time(dt_module.time, DtMixin):
             **kwargs (dict): Dictionary of time keyword arguments.
         """
         # Get the parameters and their defaults
-        params = cls.get_params(cls.DEFAULT_PARAMS, dt, args, kwargs)
+        params = cls.get_params(cls.to_kwargs(DEFAULT_DT, allow=cls.ATTRS), dt, args, kwargs)
 
         # Create this object type
         dt = super().__new__(cls, **params)
@@ -329,3 +375,34 @@ class time(dt_module.time, DtMixin):
 
     def __str__(self):
         return str_datetime(self, self.str_format or self.formats)
+
+    @dynamicmethod  # Run as a classmethod or instancemethod
+    def encode(self, item, value):
+        # Get the class object
+        cls = self
+        if isinstance(self, (dt_module.datetime, dt_module.date, dt_module.time)):
+            cls = self.__class__
+
+        # Convert to this object type
+        if not isinstance(value, datetime):
+            value = cls(dt=value, str_format=self.str_format, formats=self.formats)
+
+        # Don't change number format. Change your defaults in Excel
+        # item.NumberFormat = '[$-F400]' + datetime_fmt_to_excel(self.str_format or self.formats[0])
+        item.Value = value
+
+    def total_seconds(self):
+        """Return the total number of seconds"""
+        return int(dt_module.timedelta(hours=self.hour, minutes=self.minute, seconds=self.second).total_seconds())
+
+    def __int__(self):
+        """Return the total number of seconds"""
+        return int(dt_module.timedelta(hours=self.hour, minutes=self.minute, seconds=self.second).total_seconds())
+
+    def __float__(self):
+        """Return the time in excel time"""
+        value = self.hour / 24
+        value += self.minute / 24 / 60
+        value += self.second / 24 / 60 / 60
+        return value
+        # return (self.hour * 60 + self.minute) * 60 + self.second + (self.microsecond/1000000)

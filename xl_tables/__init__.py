@@ -2,7 +2,7 @@ from .__meta__ import version as __version__
 
 from .prop_utils import ProxyProperty, ProxyMethod, HashDict
 
-from .dtypes import datetime, date, time, \
+from .dtypes import datetime, date, time, datetime_fmt_to_excel, \
     DATETIME_FORMATS, TIME_FORMATS, DATETIME_FORMATS
 
 from .fields import CustomProperty, extract_single, is_iterable, decode_value, encode_value, excel_column_name, \
