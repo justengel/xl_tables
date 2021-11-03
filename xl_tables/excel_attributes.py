@@ -7,6 +7,7 @@ import os
 import sys
 import atexit
 import signal
+import shutil
 import win32com.client
 from .prop_utils import ProxyProperty, ProxyMethod, HashDict, ItemStorage
 from .fields import ConstantItem
@@ -20,18 +21,36 @@ def is_gencache_available():
 
     Early binding helps get class/object documentation in development.
     """
-    return win32com.client.gencache.GetClassForProgID('Excel.Application') is not None
+    try:
+        return win32com.client.gencache.GetClassForProgID('Excel.Application') is not None
+    except (AttributeError, Exception):
+        return False
+
+
+def del_gencache():
+    """Delete the gencache to create it again."""
+    try:
+        shutil.rmtree(os.path.expanduser('~\\AppData\\Local\\Temp\\gen_py'))
+    except (PermissionError, OSError, FileNotFoundError, Exception):
+        pass
 
 
 def init_gencache():
     """Initialize the gencache for early binding."""
     if not is_gencache_available():
-        try: # Create the gencache application and delete it
+        try:  # Create the gencache application and delete it
             gen = win32com.client.gencache.EnsureDispatch('Excel.Application')
             gen.Quit()
             del gen
         except (AttributeError, TypeError, ValueError, Exception):
-            pass
+            try:  # Create the gencache application and delete it
+                del_gencache()
+
+                gen = win32com.client.gencache.EnsureDispatch('Excel.Application')
+                gen.Quit()
+                del gen
+            except (AttributeError, TypeError, ValueError, Exception):
+                pass
 
 
 # Call init gencache. Required for constants!
@@ -244,7 +263,7 @@ def get_xl_com_for_settings(**xl_settings):
     except (KeyError, Exception):
         # Create a new excel object for the settings and return the excel object
         is_parallel = settings.get('is_parallel', None)
-        if is_parallel or is_parallel is None:
+        if (is_parallel or is_parallel is None) and is_gencache_available():
             xl = win32com.client.DispatchEx("Excel.Application")
         else:
             xl = win32com.client.Dispatch("Excel.Application")
@@ -691,33 +710,36 @@ class Workbook(object):
         return self
 
     EXT_TO_FMT = {
-        # Lower case extension to Format
-        '.xla': win32com.client.constants.xlAddIn,
-        '.csv': win32com.client.constants.xlCSV,
-        '.txt': win32com.client.constants.xlCurrentPlatformText,
-        '.dbf': win32com.client.constants.xlDBF4,
-        '.dif': win32com.client.constants.xlDIF,
-        '.xlsb': win32com.client.constants.xlExcel12,
-        # '.xls': win32com.client.constants.xlExcel8,
-        '.htm': win32com.client.constants.xlHtml, '.html': win32com.client.constants.xlHtml,
-        '.ods': win32com.client.constants.xlOpenDocumentSpreadsheet,
-        '.xlam': win32com.client.constants.xlOpenXMLAddIn,
-        '.xltx': win32com.client.constants.xlOpenXMLTemplate,  # win32com.client.constants.xlTemplate,
-        '.xlsm': win32com.client.constants.xlOpenXMLWorkbookMacroEnabled,
-        '.slk': win32com.client.constants.xlSYLK,
-        '.xlt': win32com.client.constants.xlTemplate,
-        '.prn': win32com.client.constants.xlTextPrinter,
-        '.mht': win32com.client.constants.xlWebArchive, '.mhtml': win32com.client.constants.xlWebArchive,
-        '.wj2': win32com.client.constants.xlWJ2WD1,
-        '.wj3': win32com.client.constants.xlWJ3FJ3,
-        '.wk1': win32com.client.constants.xlWK3FM3,
-        '.wk3': win32com.client.constants.xlWK3,
-        '.wk4': win32com.client.constants.xlWK4,
-        '.wks': win32com.client.constants.xlWKS,
-        '.xlsx': win32com.client.constants.xlWorkbookDefault,
-        '.xls': win32com.client.constants.xlWorkbookNormal,
-        '.wq1': win32com.client.constants.xlWQ1,
-        '.xml': win32com.client.constants.xlXMLSpreadsheet,
+        # Lower case extension to Format https://docs.microsoft.com/en-us/office/vba/api/excel.xlfileformat
+        '.xla': getattr(win32com.client.constants, 'xlAddIn', 18),
+        '.csv': getattr(win32com.client.constants, 'xlCSV', 6),
+        '.txt': getattr(win32com.client.constants, 'xlCurrentPlatformText', -4158),
+        '.dbf': getattr(win32com.client.constants, 'xlDBF4', 11),
+        '.dif': getattr(win32com.client.constants, 'xlDIF', 9),
+        '.xlsb': getattr(win32com.client.constants, 'xlExcel12', 50),
+        # '.xls': getattr(win32com.client.constants, 'xlExcel8', 56),
+        '.htm': getattr(win32com.client.constants, 'xlHtml', 44),
+        '.html': getattr(win32com.client.constants, 'xlHtml', 44),
+        '.ods': getattr(win32com.client.constants, 'xlOpenDocumentSpreadsheet', 60),
+        '.xlam': getattr(win32com.client.constants, 'xlOpenXMLAddIn', 55),
+        '.xltx': getattr(win32com.client.constants, 'xlOpenXMLTemplate', 54),
+        # getattr(win32com.client.constants, 'xlTemplate', 17),
+        '.xlsm': getattr(win32com.client.constants, 'xlOpenXMLWorkbookMacroEnabled', 52),
+        '.slk': getattr(win32com.client.constants, 'xlSYLK', 2),
+        '.xlt': getattr(win32com.client.constants, 'xlTemplate', 17),
+        '.prn': getattr(win32com.client.constants, 'xlTextPrinter', 36),
+        '.mht': getattr(win32com.client.constants, 'xlWebArchive', 45),
+        '.mhtml': getattr(win32com.client.constants, 'xlWebArchive', 45),
+        '.wj2': getattr(win32com.client.constants, 'xlWJ2WD1', 14),
+        '.wj3': getattr(win32com.client.constants, 'xlWJ3FJ3', 41),
+        '.wk1': getattr(win32com.client.constants, 'xlWK3FM3', 32),
+        '.wk3': getattr(win32com.client.constants, 'xlWK3', 15),
+        '.wk4': getattr(win32com.client.constants, 'xlWK4', 38),
+        '.wks': getattr(win32com.client.constants, 'xlWKS', 4),
+        '.xlsx': getattr(win32com.client.constants, 'xlWorkbookDefault', 51),
+        '.xls': getattr(win32com.client.constants, 'xlWorkbookNormal', -4143),
+        '.wq1': getattr(win32com.client.constants, 'xlWQ1', 34),
+        '.xml': getattr(win32com.client.constants, 'xlXMLSpreadsheet', 46),
         }
 
     def save(self, filename=None):
