@@ -1,5 +1,5 @@
 name = 'xl_tables'
-version = '1.0.0'
+version = '1.0.1'
 description = 'Read and write excel files using table descriptors.'
 url = 'https://github.com/justengel/xl_tables'
 author = 'Justin Engel'
