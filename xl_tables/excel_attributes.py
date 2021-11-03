@@ -759,10 +759,11 @@ class Workbook(object):
 
     def get_sheet(self, sheet, create=True):
         """Return the sheet for an index or name."""
-        if isinstance(sheet, int):
-            sheet = 'Sheet'+str(sheet)
         try:
-            obj = self.wb.Sheets(sheet)  # Get the sheet
+            if isinstance(sheet, int):
+                obj = self.wb.Sheets[sheet]  # Get the sheet
+            else:
+                obj = self.wb.Sheets(sheet)  # Get the sheet
             obj.Activate()
         except (ValueError, TypeError, Exception):
             if create:
