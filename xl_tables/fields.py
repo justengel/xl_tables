@@ -1,5 +1,8 @@
 import string
+import wrapt
+from itertools import takewhile
 from .dtypes import datetime, date, time
+
 
 __all__ = ['CustomProperty', 'extract_single', 'is_iterable', 'decode_value', 'encode_value', 'excel_column_name',
            'Field', 'Item',
@@ -127,16 +130,81 @@ def excel_column_name(col):
     return col
 
 
-def decode_object(item):
-    """Convert an Excel item object into a Python value.
+class DecodedObject(wrapt.ObjectProxy):
+    """Custom Excel Item object that has array and list methods.
 
     Args:
         item (Excel Item/object): Excel Item object (Row, Column, Range, Cell)
 
     Returns:
-        value (object/str/float/int): Python item/object/value that was read
+        value (DecodedObject): Python item/object/value that was read
     """
-    return item
+    def __init__(self, wrapped):
+        self._self_xl_parent = None
+        super().__init__(wrapped)
+
+    def to_tuple(self):
+        """Return a tuple of contiguous values."""
+        parent = self._self_xl_parent
+
+        if self.Areas.Count > 1:
+            # Could have multiple areas where .Value will only return the first Area (Range) value.
+            value = tuple(area.Value for area in self.Areas)
+        else:
+            value = self.Value
+
+        if is_iterable(value, allow_str=False):
+            value = extract_single(value)
+            if is_iterable(value, allow_str=False):
+                # Extract single converts single column to single value
+                value = tuple(takewhile(lambda x: extract_single(x) is not None, value))
+                value = tuple(extract_single(val) for val in value)
+        return value
+
+    def to_list(self):
+        """Return a list of contiguous values."""
+        return list(self.to_tuple())
+
+    def length(self):
+        """Return the length of contiguous values."""
+        return len(self.to_tuple())
+
+    def pop(self, idx=None):
+        """Pop off an item at the end."""
+        parent = self._self_xl_parent
+        if idx is None:
+            idx = self.length() + 1  # Excel has an index 1 offset
+
+        idx -= 1
+        if parent.cols:
+            val = self.Cells(idx, 1).Value
+            self.Cells(idx, 1).Value = None
+        else:
+            val = self.Cells(1, idx).Value
+            self.Cells(1, idx).Value = None
+        return val
+
+    def append(self, value):
+        """Append an item to the end of the list."""
+        parent = self._self_xl_parent
+        last_idx = self.length() + 1  # Excel has an index 1 offset
+        if parent.cols:
+            self.Cells(last_idx, 1).Value = value
+        else:
+            self.Cells(1, last_idx).Value = value
+
+    def extend(self, value):
+        """Extend an item with the given list."""
+        parent = self._self_xl_parent
+        last_idx = self.length() + 1  # Excel has an index 1 offset
+        if parent.cols:
+            for v in value:
+                self.Cells(last_idx, 1).Value = v
+                last_idx += 1
+        else:
+            for v in value:
+                self.Cells(1, last_idx).Value = v
+                last_idx += 1
 
 
 def decode_value(item):
@@ -225,7 +293,7 @@ class Field(CustomProperty):
 
     dtype = property(get_dtype, set_dtype)
 
-    decode = staticmethod(decode_object)
+    decode = staticmethod(DecodedObject)
     encode = staticmethod(encode_value)
 
     def decoder(self, func):
@@ -371,7 +439,7 @@ class Item(Field):
 
         if rows is not None:
             if row_length is None:
-                row_length = 16840  # Default row size in excel
+                row_length = 702  # Default row size in excel ($ZZ)
 
             if not is_iterable(rows):
                 rows = [rows]
@@ -403,7 +471,10 @@ class Item(Field):
     def fget(self, instance):
         """Return the Range Item Object"""
         item = self.get_item(instance)
-        return self.decode(item)
+        item = self.decode(item)
+        if hasattr(item, '_self_xl_parent'):
+            setattr(item, '_self_xl_parent', self)
+        return item
 
     def fset(self, instance, value):
         """Set the Range value."""

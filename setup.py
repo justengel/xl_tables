@@ -78,6 +78,7 @@ if __name__ == "__main__":
           install_requires=[
               'pywin32>=227',
               'dynamicmethod>=1.1.0',
+              'wrapt>=1.13.3',
               ],
           extras_require={
               },

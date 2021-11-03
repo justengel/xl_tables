@@ -26,6 +26,7 @@ def run_simple_example():
         array = xl.Range('A8:C10')
         # array_item = xl.RowItem(8, 9, 10, row_length=3)
         # array = xl.Row(8, 9, 10, row_length=3)
+        any_size_array = xl.ColumnItem(20)  # xl.RowItem(20)
 
     tbl = MyTable(DisplayAlerts=False)
 
@@ -75,6 +76,15 @@ def run_simple_example():
     tbl.save('person.txt')  # 'person.txt' or '.tsv' will save every cell separated by '\t'
     tbl.save('person.csv')  # 'person.csv' will save every cell separated by ','
     tbl.save('person.xlsx')
+
+    # ===== Check array =====
+    print(tbl.any_size_array.to_list())
+    tbl.any_size_array.append(1)
+    print(tbl.any_size_array.to_list())
+    tbl.any_size_array.extend([4, 5, 6])
+    print(tbl.any_size_array.to_list())
+    print(tbl.any_size_array.pop())
+    print(tbl.any_size_array.to_list())
 
 
 if __name__ == '__main__':
