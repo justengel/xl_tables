@@ -42,7 +42,7 @@ def run_simple_example():
                  (7, 8, 9)]
 
     # Make a border around the cells in the table
-    tbl.array_item.Borders(xl.xlEdgeTop).LineStyle = xl.xlDouble
+    tbl.array_item.Borders(xl.constants.xlEdgeTop).LineStyle = xl.constants.xlDouble
 
     text = '{lbl1} = {opt1}\n' \
            '{lbl2} = {opt2}\n' \

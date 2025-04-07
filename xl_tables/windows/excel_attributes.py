@@ -10,11 +10,26 @@ import signal
 import shutil
 import win32com.client
 from .constants import populate_constants
-from .prop_utils import ProxyProperty, ProxyMethod, HashDict, ItemStorage
-from .fields import ConstantItem
+from ..prop_utils import ProxyProperty, ProxyMethod, HashDict, ItemStorage
+from ..fields import ConstantItem
 
-__all__ = ['Excel', 'Workbook',
+__all__ = ['Excel', 'Workbook', 'is_excel_installed',
            'should_init_sig', 'set_init_sig', 'init_sig_shutdown', 'shutdown']
+
+
+def is_excel_installed():
+    try:
+        # Attempt to create an Excel application object
+        excel = win32com.client.Dispatch("Excel.Application")
+        excel.Quit()  # Clean up by closing the instance
+        return True
+    except com_error:
+        # COM error typically means Excel isn't installed or registered
+        return False
+    except Exception as e:
+        # Handle other unexpected errors
+        print(f"Unexpected error: {e}")
+        return False
 
 
 def is_gencache_available():
@@ -1269,6 +1284,3 @@ def shutdown(*args, sys_exit=True, **kwargs):
     if sys_exit:
         sys.exit(-1)
 
-
-# Automatically register the shutdown function with atexit
-atexit.register(shutdown, sys_exit=False)
