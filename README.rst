@@ -4,6 +4,19 @@ xl_tables
 
 Use descriptors to get and set Excel table values.
 
+Update
+======
+
+Version 2.0.0 attempts to support openpyxl in the event you do not have Excel on your machine.
+This support is incomplete and does not have all of the Constants and methods populated.
+Switching between backends may not be supported.
+
+Another change is how we import the constants. 
+All constants were moved to `xl_tables.constants`
+In older versions you could use `xl_tables.xlDouble`. Now you must use `xl_tables.constants.xlDouble`
+
+To change the backend call `xl_tables.change_backend(windows=True)`.
+
 
 Examples
 ========
